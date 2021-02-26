@@ -1,0 +1,104 @@
+#!/bin/bash
+
+# Check environment #
+<<'//_SKIP_//'
+# Load R version and packages
+module load R/3.6.0
+module load R_packages/3.6.0
+
+# Create temp folder to hold script // dont edit //
+if [ ! -d "$PWD/TMP" ]
+then
+	mkdir -p ${PWD}/TMP
+	echo "rm(list=ls())" > ${PWD}/TMP/check_env.R
+else
+	echo "$PWD/TMP already exists"
+fi
+ 
+#-------------------------------->>>>>
+# EDIT: List all R packages you'd like to test ("PKG") and their versions ("VER")
+PKG=("dplyr" "infercnv")
+VER="c('0.8.3' '1.0.4')"
+#<<<<<--------------------------------
+
+# Create test script  // dont edit //
+L="${#PKG[@]}"
+LL=$(( L - 1 ))
+echo "args<-commandArgs(trailingOnly=TRUE)" >> ./TMP/check_env.R
+echo "vc<-vector(mode=\"character\",length=$L)" >> ./TMP/check_env.R
+for i in $(eval echo "{0..$LL}")
+do
+	pkg="${PKG[$i]}"
+	j=$(( i + 1 ))
+	echo "library($pkg)" >> ./TMP/check_env.R
+	echo "vc[$j]<-as.character(packageVersion(\"$pkg\"))" >> ./TMP/check_env.R
+done
+echo "if(all(vc==args)) {system(\"echo RIGHT_ENV\")} else {system(\"echo WRONG_ENV\")}" >> ./TMP/check_env.R
+
+# Execute
+ENV=$( Rscript ./TMP/check_env.R $VER 2> /dev/null )
+rm -r ${PWD}/TMP
+
+if [ $ENV = "ENV_WRONG"] 
+then
+	exit 9999
+fi
+unset PKG VER L LL ENV
+#-----------------------------------------------------------------------#
+//_SKIP_//
+#-----------------------------------------------------------------------#
+
+# Create input files 
+subpath="/castor/project/proj/maria.d/01_CNV_PROJECT.D/code.d/submitters.d/04_submit/"
+script="01.2.1_input_infercnv"
+jid1=$( sbatch --parsable ${subpath}${script}.sh )
+
+echo "$jobnm $jid1"
+#-----------------------------------------------------------------------#
+
+# Wait for job to finish
+#jid1=$(echo $jid1 | grep -oe "[0-9]*") # when #SBATCH--parsable option is included
+var=$(finishedjobinfo -j $jid1)
+var=$( echo $var | grep -o 'COMPLETED\|FAILED\|TIMEOUT\|CANCELLED')
+while [ $var != "COMPLETED" ] 
+do 
+        echo "job1 $jid1 not completed" 
+        sleep 1m 
+        var=$(finishedjobinfo -j $jid1)
+        var=$( echo $var | grep -o 'COMPLETED\|FAILED\|TIMEOUT\|CANCELLED')
+done
+unset var
+#------------------------------------------------------------------------------#
+
+# Generate submitters and run 02.1_run_infercnv.R
+# script path
+subpath="/castor/project/proj/maria.d/01_CNV_PROJECT.D/code.d/submitters.d/04_submit/"
+# log path
+logpath="/castor/project/proj/maria.d/01_CNV_PROJECT.D/code.d/routs.d/04_routs/"
+# name of this job
+script="02.1.1_run_infercnv_makeSubmitter"
+
+sh ${subpath}${script}.sh &> ${logpath}${script}.LOG
+#----------------------------------------------------------------------#
+
+<<'//_SKIP_//'
+##################################################################################
+# I need to run jid2 as a SLURM --array to be able to include jid4 in the pipeline #
+################################################################################## 
+
+# Run 03.0.1_collect_results.R for all samples
+# script path
+subpath="/castor/project/proj/maria.d/01_CNV_PROJECT.D/code.d/submitters.d/04_submit/"
+# name of this job
+jobnm="03.0.1_collect_results_infercnv"
+
+# list of job ids dependencies
+jid3=$( cat jids )
+jid3=$( echo ${jid3// /,afterok:})
+
+jid4=$( sbatch --account=sens2018122  --job-name=$jobnm --output=${jobnm}_%J.stdout --parsable --dependency=afterok:${jid3} ${subpath}${jobnm}.sh )
+
+echo "$jobnm1 $jid3"
+echo "$jobnm $jid4"
+rm jids
+//_SKIP_//
