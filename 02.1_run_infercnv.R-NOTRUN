@@ -1,0 +1,113 @@
+rm(list=ls())
+#---------------------------------------------
+library("infercnv")
+#----------------------------------------------------
+source("/castor/project/proj/maria.d/01_CNV_PROJECT.D/code.d/inferCNV_heatmap.R")
+#-----------------------------------------------------
+args <-commandArgs(trailingOnly=TRUE)
+
+for(i in 1:length(args)){
+        assign(paste("args",i,sep=""),eval(parse(text=args[i])))
+        cat(paste("args",i,sep=""),":\n")
+        str(eval(parse(text=paste("args",i,sep=""))))
+}
+#------------------------------------------------------
+start_time<-Sys.time()
+#------------------------------------------------------
+cat("LOADING DATA\n")
+
+count.f<- args1
+cat(".. reading count data\n")
+
+cells.f<- args2
+cat(".. reading cell data\n")
+
+genes.f<- args3
+cat(".. reading genes data\n")
+
+ref.group<- args4
+if(args4=="XXX"){ ref.group<-readLines(pipe("cat temp")) }
+cat(".. reference:",ref.group,"\n")
+
+# Cutoff:  Cut-off for the min average read counts per gene among reference cells. (default: 1)
+cutoff<-1
+cat(".. min average read counts per gene among reference cells:",cutoff,"\n")
+
+# maximum P(Normal) allowed for a CNV prediction according to BayesNet. (default=0.5, note zero turns it off)
+BMPN<-as.numeric(args8) 
+cat(".. maximum P(Normal) allowed for a CNV prediction:",BMPN,"\n")
+
+# window size
+window<- 101
+cat("window size:",window,"\n")
+
+#sample
+samp<-args6
+cat("sample:",samp,"\n")
+
+# output directory
+scrpt<- args7
+out.dir<- paste(args5,scrpt,"_",samp,"__v",packageVersion("infercnv"),"_",BMPN,"_",cutoff,"_",window,".d",sep="")
+cat(".. directory holding results:",out.dir,"\n")
+
+# number of cores
+nthreads<-8
+cat(".. using:",nthreads,"cores\n")
+
+# output format
+of<-args9
+
+cat("Done",Sys.time(),"----------------------------------------------------------------------------------------------------------\n")
+
+cat("PROCESSING DATA\n")	
+# create the infercnv object
+cat(".. creating infercnv object\n")	
+infercnv_data = CreateInfercnvObject(raw_counts_matrix= count.f, 
+                                     annotations_file= cells.f,
+                                     delim="\t",
+				     gene_order_file= genes.f,
+				     ref_group_names=ref.group,
+				     max_cells_per_group= 400)
+	
+#perform infercnv operations to reveal cnv signal
+cat(".. running infercnv algorithm\n")
+infercnv_obj = infercnv::run(infercnv_data,
+			     cutoff= cutoff, 
+			     out_dir= out.dir, 
+			     cluster_by_groups=T, 
+			     plot_steps=F,
+			     HMM=T,
+			     mask_nonDE_genes=F,
+			     num_threads=nthreads,
+			     diagnostics= F,
+			     HMM_type= "i6",
+			     analysis_mode= "subclusters",
+			     BayesMaxPNormal= BMPN,
+			     denoise=T,
+			     window_length=window,
+			     output_format=of)
+
+cat("DONE",Sys.time(),"-----------------------------------------------------------------------------------------------------------------------------------\n");
+end_time<- Sys.time()
+paste("USER:", Sys.getenv(c("SLURM_JOB_USER")))
+paste("DATE:", as.POSIXct(Sys.time(),format="%Y-%m-%d %H:%M:%OS"))
+end_time-start_time
+cat("----------------------------------------------------------------------------------------------------------------------------------------------------------\n")
+sessionInfo()	
+
+
+if(FALSE){
+print("BayesMaxPNorm")
+(BMPN<- as.numeric(args[1]))
+print("probability threshold")
+(cutoff<-as.numeric(args[2]))
+print("window size")
+(window<-as.numeric(args[3]))
+print("counts file")
+(count.f<- args[5])
+print("Cells file")
+(cells.f<- args[4])
+print("genes file")
+(genes.f<- args[6])
+(ref.group<- c("normal_immune"))
+}
