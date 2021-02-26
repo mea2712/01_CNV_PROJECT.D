@@ -1,0 +1,154 @@
+#!/bin/bash
+
+#SBATCH -A sens2018122
+#SBATCH -p core
+#SBATCH -n 1
+#SBATCH -t 01:00:00
+#SBATCH --mail-user=maria.arceo@ki.se
+#SBATCH --mail-type=ALL
+#SBATCH -J 02.1.1_run_infercnv_generator                   #### REMEMBER TO KEEP UPDATED ####
+#SBATCH --output=02.1.1_run_infercnv_generator_%J.stdout    #### REMEMBER TO KEEP UPDATED ####
+#---------------------------------------------------------------------#
+
+# Load software modules
+
+#---------------------------------------------------------------------#
+
+# slurm arguments
+echo "JOB_ID=${SLURM_JOB_ID}"
+echo "JOB_NAME=${SLURM_JOB_NAME}"
+#-----------------------------------------------------------------------#
+
+# Code and logs directories
+codedir="/castor/project/proj/maria.d/01_CNV_PROJECT.D/code.d/"
+logdir=$(echo "${codedir}routs.d/03_routs/")
+lognm="02.1.1_run_infercnv_generator"              #### SAME AS SLURM JOB NAME ####
+#-----------------------------------------------------------------------#
+
+# EXPORTED VARIABLES 
+#jobnm=$jobnm
+#jobnm1=$jobnm1
+#-----------------------------------------------------------------------#
+
+# LOCAL VARIABLES 
+# Input files for submitters 
+indir='/castor/project/proj/maria.d/01_CNV_PROJECT.D/output.d/03_out/01.2.1_input_infercnv'
+# job name for submitters
+jobnm1="02.0.1_run_infercnv"
+# root dir path for submitters' logs 
+submlogdir="${codedir}submitters.d/03_submit/"
+#-----------------------------------------------------------------------#
+
+# SUBMITTER GENERATOR
+# Pattern of COUNT files (or CELLS files) produced by 01.2_input.infercnv.R -everything but the SAMPLE ID -
+args1="01_CNV_PROJECT.D/output.d/03_out/01.2.1_input_infercnv___COUNTS-"
+samp=$( ls ${args1}* | cut -d'-' -f2 )
+read -d" " -a  samp <<< "$samp"
+
+for i in "${samp[@]}"
+do
+	## Create the bash script to execute infercnv.R with system requirenments
+	subsh="${submlogdir}${jobnm1}___${i}.sh"
+	echo '#!/bin/bash -l' > $subsh 
+	echo >> $subsh
+	echo "#SBATCH -A sens2018122" >> $subsh
+	echo "#SBATCH -p core"  >> $subsh
+	echo "#SBATCH -n 8" >> $subsh
+	echo "#SBATCH -t 03:00:00" >> $subsh
+	echo "#SBATCH -J ${jobnm1}___${i}" >> $subsh
+	echo "#SBATCH --output ${jobnm1}_${i}_%J.stdout" >> $subsh
+	echo "#SBATCH --mail-user=maria.arceo@ki.se" >> $subsh
+	echo "#SBATCH --mail-type=ALL" >> $subsh
+	echo >> $subsh
+	echo "### for ddetails see 02.0.1_run_infercnv.sh ###" >> $subsh
+	echo >> $subsh
+	echo "module load R/4.0.0" >> $subsh
+	echo "module load R_packages/4.0.0" >> $subsh
+	echo >> $subsh
+	echo 'echo "JOB_ID=${SLURM_JOB_ID}"' >> $subsh
+	echo 'echo "JOB_NAME=${SLURM_JOB_NAME}"' >> $subsh
+	echo >> $subsh
+	echo "codedir=\"$codedir\"" >> $subsh
+	echo "logdir=\"$logdir\"" >> $subsh
+	echo "lognm=\"$jobnm1\"" >> $subsh
+	echo "outnm=\"$i\"" >> $subsh
+	echo >> $subsh
+	# Input files
+	echo "# Input files" >> $subsh
+	echo "args1=\"as.character('${indir}___COUNTS-$i')\"" >> $subsh  #counts
+	echo "args2=\"as.character('${indir}___CELLS-$i')\"" >> $subsh #cells
+	echo "args3=\"as.character('${indir}___GENES')\"" >> $subsh  #genes
+	# Reference
+	echo >> $subsh
+	echo "# Get normal reference" >> $subsh
+	echo "grep 'normal' ${indir}___CELLS-$i | awk '{print \$2}' | sort | uniq > temp" >> $subsh
+    echo "args4=\"as.character('XXX')\"" >> $subsh
+	#echo "args4=\$( grep 'normal' ${indir}___CELLS-${i} | awk '{print \$2}' | sort | uniq > temp )" >> $subsh
+    #echo "args4=\"c('${args4//[[:space:]]/','}')\"" >> $subsh
+	echo >> $subsh
+	# output dir
+	echo "# output dir" >> $subsh
+	echo "args5=\"as.character('/castor/project/proj/maria.d/01_CNV_PROJECT.D/output.d/03_out/')\"" >> $subsh               
+	echo >> $subsh
+	# sample and local parameters
+	echo "# sample and local parameters" >> $subsh
+	echo "args6=\"as.character('$i')\"" >> $subsh
+	echo "args7=\"as.character('$jobnm1')\"" >> $subsh
+	echo "args8=\"as.character('0.1')\"" >> $subsh
+	echo "args9=\"as.character('png')\"" >> $subsh
+	echo >> $subsh
+	echo "# Run" >> $subsh
+	echo 'if [  ! -z "$SLURM_JOB_ID" ]' >> $subsh
+	echo "then" >> $subsh
+	echo 'Rscript --vanilla ${codedir}/02_run_infercnv.R $args1 $args2 $args3 $args4 $args5 $args6 $args7 $args8 $args9 > ${logdir}${SLURM_JOB_NAME}_${SLURM_JOB_ID}__$outnm.ROUT' >> $subsh
+	echo "else" >> $subsh
+	echo 'Rscript --vanilla ${codedir}/02_run_infercnv.R $args1 $args2 $args3 $args4 $args5 $args6 $args7 $args8 $args9 > ${logdir}${lognm}__${outnm}.ROUT' >> $subsh
+	echo "fi" >> $subsh
+	echo "unset args1 args2 args3 args4 args5 args6 args7 args8 args9" >> $subsh
+	echo >> $subsh
+	echo "# Collect standard output" >> $subsh
+	echo 'if [ ! -z "$SLURM_JOB_ID" ]' >> $subsh
+	echo "then" >> $subsh
+	echo 'mv ${SLURM_JOB_NAME}_${SLURM_JOB_ID}.stdout ${logdir}' >> $subsh
+	echo 'echo "LOG FILES ARE IN:"' >> $subsh
+	echo 'echo "${logdir}${SLURM_JOB_NAME}${SLURM_JOB_ID}.stdout"' >> $subsh 
+	
+	# Permissions
+	chmod u=rwx,o=rx,g=x $subsh
+	
+	# Run 
+	srun --account=sens2018122 ${subsh}
+	sleep 5m
+	rm temp
+done
+#--------------------------------------------------------------------------------------------------#
+<<'//__//'
+# SUBMITTER RUN
+# pattern name for submitters generated
+args2="${submlogdir}${jobnm1}___"
+subm=$( ls ${args2}* )
+read -d" " -a  subm <<< "$subm"
+
+declare -a jid
+j=0
+for i in "${subm[@]}"
+do
+	jid1=$( srun --account=sens2018122 ${i} )
+	jid[$j]=$jid1
+	j=$(( j + 1 ))
+done
+#-----------------------------------------------------------------------#
+
+# Save job ids
+echo "${jid[*]" > jids
+#------------------------------------------------------------------------#
+//__//
+
+# Collect standard output
+if [ ! -z "$SLURM_JOB_ID" ]
+then
+	mv ${SLURM_JOB_NAME}_${SLURM_JOB_ID}.stdout ${logdir}
+	echo "LOG FILES ARE IN:"
+	echo "${logdir}${SLURM_JOB_NAME}_${SLURM_JOB_ID}.stdout"
+fi
+
