@@ -1,0 +1,23 @@
+<<'//_SUMMARY_//'
+
+04.2.2_plot.sh
+-->04.2.2_plot__[sample]: inferCNV original [per sample] heatmap with significant CNV regions in ***pdf*** format
+
+05.0.2_plot.sh
+--> 05.0.2_plot1.svg: heatmap of cluster with significant number of CNV larger than average (Fisher exact test) 
+for the regions of interest: 1p_loss, 11q_loss, 17q_gain *** updated versions available ***
+--> 05.0.2_plot2_[sample].png: original plot of CNV plotted in a karyotype as just bars in regions *** updated versions available ***
+
+06.0.1_plot.sh
+--> 06.0.1_plot.png: draft of CNV plotted in a karyotype as number of cells in regions including reported SNP regions as dashed green boxes ***updated versions available ***
+
+05.0-06.0_pipe_1.sh
+--> 05.0-06.0_pipe_1_05.0_plot1.svg: heatmap of cluster with significant number of CNV larger than average (Fisher exact test) 
+for the 4 regions of interest: 1p_loss, 11q_loss, 17q_gain and 2p_gain ***2p_gain has a wrong tag, needs to be fixed ***
+--> 05.0-06.0_pipe_1_05.0_plot2_[sample].png: original plot of CNV plotted in a karyotype as just bars in regions *** updated versions available ***
+--> 05.0-06.0_pipe_1_05.0_plot[1-6].png: CNV plotted in a karyotype as number of cells in regions *** updated versions available
+
+06.1.1_plot.sh
+--> 06.1.1_plot_[1-6].svg: updated version of 06.0.1_plot.png
+
+//_SUMMARY_//
